@@ -8,6 +8,9 @@ import LockIcon from '@material-ui/icons/Lock';
 import LockOpenIcon from '@material-ui/icons/LockOpen';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import { GitHubService, IGitHubService } from "./brightspace-github-api-wrapper/GitHubService"
+import Axios from 'axios';
+
 
 interface AppProps {
 }
@@ -32,6 +35,9 @@ export class App extends React.Component<AppProps, AppState> {
       username: "",
       checkedRepo: ""
     }
+  }
+
+  componentDidMount = async () => {
   }
 
   toggleSubmitting = () => {
