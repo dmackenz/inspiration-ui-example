@@ -2,14 +2,13 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 
-import { Grid, Typography, AppBar, Toolbar, Paper, Button, Dialog, DialogTitle, List, ListItemText, ListItem, ListItemIcon, Checkbox } from "@material-ui/core"
+import { Grid, Typography, AppBar, Toolbar, Paper, Button, Dialog, DialogTitle, List, ListItemText, ListItem, ListItemIcon, Checkbox, ListSubheader, LinearProgress, CircularProgress, Snackbar, Slide } from "@material-ui/core"
 import ComputerIcon from '@material-ui/icons/Computer';
 import LockIcon from '@material-ui/icons/Lock';
 import LockOpenIcon from '@material-ui/icons/LockOpen';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { GitHubService, IGitHubService } from "./brightspace-github-api-wrapper/GitHubService"
-import Axios from 'axios';
 
 
 interface AppProps {
@@ -21,7 +20,11 @@ interface AppState {
   isAuthenticated: boolean,
   repos: string[],
   checkedRepo: string
-  username: string
+  username: string,
+  githubService: IGitHubService,
+  assignmentUrl: string,
+  isSubmittingProgress: boolean,
+  isSnackbarPresent: boolean
 }
 
 export class App extends React.Component<AppProps, AppState> {
@@ -32,12 +35,13 @@ export class App extends React.Component<AppProps, AppState> {
       isGithub: false,
       isAuthenticated: false,
       repos: [],
-      username: "",
-      checkedRepo: ""
+      username: "DiljotSG",
+      checkedRepo: "",
+      githubService: GitHubService(),
+      assignmentUrl: "",
+      isSubmittingProgress: false,
+      isSnackbarPresent: false
     }
-  }
-
-  componentDidMount = async () => {
   }
 
   toggleSubmitting = () => {
@@ -45,14 +49,17 @@ export class App extends React.Component<AppProps, AppState> {
     this.setState({ isSubmitting: !isSubmitting }) 
   }
 
-  toggleGithub = () => {
-    const { isGithub } = this.state
-    this.setState({ isGithub: !isGithub }) 
+  toggleGithub = async () => {
+    const { username, githubService, isGithub } = this.state
+    // const isLoggedIn: boolean = await githubService.isUserLoggedIn()
+    const isLoggedIn: boolean = true
+    const repos: string[] = await githubService.getRepoList(username)
+    this.setState({ isGithub: !isGithub, repos, isAuthenticated: isLoggedIn }) 
   }
 
   close = () => {
     const { isGithub, isSubmitting } = this.state
-    this.setState({ isGithub: false, isSubmitting: false }) 
+    this.setState({ isGithub: false, isSubmitting: false, isSubmittingProgress: false }) 
   }
 
   setAuthenticated = (isAuth: boolean) => {
@@ -60,10 +67,6 @@ export class App extends React.Component<AppProps, AppState> {
   }
 
   login = () => {
-    console.log("login logic")
-
-    this.setState({ username: "dmackenz", repos: ["repo1", "repo2", "repo3"] })
-
     this.setAuthenticated(true)
   }
 
@@ -71,8 +74,21 @@ export class App extends React.Component<AppProps, AppState> {
     this.setState({ checkedRepo: repo })
   }
 
+  submitAssignment = async () => {
+    this.setState({ isSubmittingProgress: true })
+    const { githubService, username, checkedRepo } = this.state
+    const assignmentUrl: string = await githubService.getRepoArchiveLink(username, checkedRepo)
+    this.setState({ assignmentUrl, isSubmittingProgress: false })
+    this.setState({ isSnackbarPresent: true }, () => {
+      setTimeout(() => {
+        this.setState({ isSnackbarPresent: false })
+      }, 5000)
+    })
+    this.close()
+  }
+
   render() {
-    const { isSubmitting, isGithub, isAuthenticated, repos, checkedRepo } = this.state
+    const { isSubmitting, isGithub, isAuthenticated, repos, checkedRepo, isSubmittingProgress, assignmentUrl, isSnackbarPresent } = this.state
 
     return (
       <React.Fragment>
@@ -103,22 +119,40 @@ export class App extends React.Component<AppProps, AppState> {
             {isGithub ?
               <Grid container style={{padding: "16px"}}>
                   {isAuthenticated ?
-                    <Grid item xs={12}>
-                      <List>
-                        {repos.map((repo: string) => (
-                          <ListItem>
-                          <ListItemIcon>
-                            <Checkbox
-                              edge="start"
-                              checked={checkedRepo === repo}
-                              onClick={() => this.checkRepo(repo)}
-                            />
-                          </ListItemIcon>
-                          <ListItemText primary={repo}/>
-                        </ListItem>
-                        ))}
-                      </List>
-                    </Grid>
+                      <React.Fragment>  
+                        <Grid item xs={12}>
+                          <List
+                            subheader={
+                              <ListSubheader component="div" id="nested-list-subheader">
+                                Repositories
+                              </ListSubheader>
+                            }
+                          >
+                            {repos.map((repo: string) => (
+                              <ListItem>
+                              <ListItemIcon>
+                                <Checkbox
+                                  edge="start"
+                                  checked={checkedRepo === repo}
+                                  onClick={() => this.checkRepo(repo)}
+                                />
+                              </ListItemIcon>
+                              <ListItemText primary={repo}/>
+                            </ListItem>
+                            ))}
+                          </List>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Button variant="outlined" color="primary" onClick={this.submitAssignment}>
+                            Submit
+                          </Button>
+                        </Grid>
+                        {isSubmittingProgress && (
+                          <Grid item xs={6}>
+                            <CircularProgress />
+                          </Grid>
+                        )}
+                     </React.Fragment>                   
                   :
                     <Grid item xs={12}>
                       <Button variant="outlined" color="primary" onClick={this.login}>
@@ -162,6 +196,13 @@ export class App extends React.Component<AppProps, AppState> {
               </List>
             }
           </Dialog>
+          {isSnackbarPresent && (
+            <Snackbar
+              open={true}
+              TransitionComponent={(props: any) => <Slide {...props} direction="left" />}
+              message={<Typography variant="body1">Assignment submitted from {assignmentUrl}</Typography>}
+            />
+          )}
         </Paper>
       </React.Fragment>
     );
